@@ -1,7 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { JobVacancy } from '../types';
 import { addCandidate } from '../services/mockApi';
+import { UploadIcon } from './icons/UploadIcon';
 
 interface ApplicationFormProps {
   vacancy: JobVacancy;
@@ -20,25 +21,62 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({ vacancy, onFor
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
-      if(allowedTypes.includes(file.type)) {
-        setCvFile(file);
-        setError('');
-      } else {
-        setError('Formato de archivo no válido. Por favor suba PDF, DOC, DOCX, o TXT.');
-        setCvFile(null);
-      }
+  const processFile = (file: File | undefined | null) => {
+    if (!file) return;
+
+    const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
+    if (allowedTypes.includes(file.type)) {
+      setCvFile(file);
+      setError('');
+    } else {
+      setError('Formato de archivo no válido. Por favor suba PDF, DOC, DOCX, o TXT.');
+      setCvFile(null);
     }
   };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    processFile(e.target.files?.[0]);
+  };
+
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isDragging) setIsDragging(true);
+  }, [isDragging]);
+
+  const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    processFile(e.dataTransfer.files?.[0]);
+  }, []);
+
+  const handleRemoveFile = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    setCvFile(null);
+    if(fileInputRef.current) {
+        fileInputRef.current.value = "";
+    }
+  };
+
+  const openFileDialog = () => {
+    fileInputRef.current?.click();
+  };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,8 +120,41 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({ vacancy, onFor
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Hoja de vida (CV)</label>
-        <input type="file" onChange={handleFileChange} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" accept=".pdf,.doc,.docx,.txt" required />
-        <p className="text-xs text-gray-500 mt-1">Formatos permitidos: PDF, DOC, DOCX, TXT.</p>
+        <div
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          onClick={openFileDialog}
+          className={`relative border-2 border-dashed rounded-md p-6 text-center cursor-pointer transition-colors duration-200 ease-in-out ${cvFile ? 'border-green-300 bg-green-50' : isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-blue-400'}`}
+        >
+            <input
+                ref={fileInputRef}
+                type="file"
+                onChange={handleFileChange}
+                className="hidden"
+                accept=".pdf,.doc,.docx,.txt"
+            />
+             {cvFile ? (
+                <div className="flex flex-col items-center justify-center">
+                    <p className="text-sm font-medium text-gray-700">Archivo seleccionado:</p>
+                    <p className="text-md font-semibold text-green-700 mt-1">{cvFile.name}</p>
+                    <button
+                        type="button"
+                        onClick={handleRemoveFile}
+                        className="mt-3 bg-red-100 text-red-700 px-3 py-1 text-xs font-semibold rounded-full hover:bg-red-200"
+                    >
+                        Quitar archivo
+                    </button>
+                </div>
+            ) : (
+                <div className="flex flex-col items-center justify-center text-gray-500">
+                    <UploadIcon className="w-10 h-10 mx-auto text-gray-400" />
+                    <p className="mt-2 font-semibold text-gray-700">Arrastre y suelte su archivo aquí</p>
+                    <p className="text-sm">o <span className="text-blue-600 font-medium">haga clic para seleccionar</span></p>
+                    <p className="text-xs text-gray-500 mt-2">Formatos permitidos: PDF, DOC, DOCX, TXT.</p>
+                </div>
+            )}
+        </div>
       </div>
       {error && <p className="text-red-500 text-sm">{error}</p>}
       <button type="submit" disabled={isSubmitting} className="w-full bg-green-600 text-white font-bold py-2 px-4 rounded-md hover:bg-green-700 disabled:bg-gray-400">
