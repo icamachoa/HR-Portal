@@ -1,0 +1,5 @@
+{
+  "name": "HR Portal de Reclutamiento",
+  "description": "Una aplicación web para que los equipos de Recursos Humanos publiquen y gestionen vacantes, y para que los candidatos soliciten puestos de trabajo.",
+  "requestFramePermissions": []
+}
