@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { getAllVacancies, updateVacancy, getCandidatesForJob, addVacancy, getCompanies } from '../services/mockApi';
+import { getAllVacancies, updateVacancy, getCandidatesForJob, addVacancy, getCompanies, deleteVacancy } from '../services/mockApi';
 import { JobVacancy, Candidate, JobStatus, Admin, Company } from '../types';
 import { Modal } from './Modal';
 import { PlusIcon } from './icons/PlusIcon';
@@ -9,6 +9,7 @@ import { UserGroupIcon } from './icons/UserGroupIcon';
 import { BriefcaseIcon } from './icons/BriefcaseIcon';
 import { ShieldCheckIcon } from './icons/ShieldCheckIcon';
 import { OfficeBuildingIcon } from './icons/OfficeBuildingIcon';
+import { TrashIcon } from './icons/TrashIcon';
 import AdminManagement from './AdminManagement';
 import CompanyManagement from './CompanyManagement';
 
@@ -135,6 +136,7 @@ const VacanciesView: React.FC<{ currentUser: Admin }> = ({ currentUser }) => {
     const [editingVacancy, setEditingVacancy] = useState<JobVacancy | null>(null);
     const [viewingCandidate, setViewingCandidate] = useState<Candidate | null>(null);
     const [vacancyCandidatesCount, setVacancyCandidatesCount] = useState<Record<string, number>>({});
+    const [vacancyToDelete, setVacancyToDelete] = useState<JobVacancy | null>(null);
 
     const companyMap = useMemo(() => {
         return companies.reduce((acc, company) => {
@@ -201,6 +203,21 @@ const VacanciesView: React.FC<{ currentUser: Admin }> = ({ currentUser }) => {
         setEditingVacancy(null);
     };
     
+    const handleDeleteVacancy = async () => {
+        if (!vacancyToDelete) return;
+        const success = await deleteVacancy(vacancyToDelete.id);
+        if (success) {
+            await fetchAllData();
+            if (selectedVacancy?.id === vacancyToDelete.id) {
+                setSelectedVacancy(null);
+                setCandidates([]);
+            }
+        } else {
+            alert('No se pudo eliminar la vacante. Intente de nuevo.');
+        }
+        setVacancyToDelete(null);
+    };
+
      return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
@@ -237,6 +254,7 @@ const VacanciesView: React.FC<{ currentUser: Admin }> = ({ currentUser }) => {
                                         <td className="p-3 flex items-center space-x-2">
                                             <button onClick={() => handleSelectVacancy(v)} title="Ver Postulantes" className="p-2 text-gray-500 hover:text-blue-600"><EyeIcon className="w-5 h-5"/></button>
                                             <button onClick={() => handleOpenFormModal(v)} title="Editar Vacante" className="p-2 text-gray-500 hover:text-green-600"><PencilIcon className="w-5 h-5"/></button>
+                                            <button onClick={() => setVacancyToDelete(v)} title="Eliminar Vacante" className="p-2 text-gray-500 hover:text-red-600"><TrashIcon className="w-5 h-5"/></button>
                                         </td>
                                     </tr>
                                 ))
@@ -287,6 +305,20 @@ const VacanciesView: React.FC<{ currentUser: Admin }> = ({ currentUser }) => {
 
             {viewingCandidate && (
                 <CandidateDetailsModal candidate={viewingCandidate} onClose={() => setViewingCandidate(null)} />
+            )}
+
+            {vacancyToDelete && (
+                <Modal title="Confirmar Eliminación" onClose={() => setVacancyToDelete(null)}>
+                    <div>
+                        <p className="text-gray-600 mb-6">
+                            ¿Está seguro que desea eliminar la vacante "{vacancyToDelete.title}"? Esta acción eliminará también a todos sus postulantes y no se puede deshacer.
+                        </p>
+                        <div className="flex justify-end space-x-3">
+                            <button onClick={() => setVacancyToDelete(null)} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
+                            <button onClick={handleDeleteVacancy} className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700">Eliminar</button>
+                        </div>
+                    </div>
+                </Modal>
             )}
         </div>
     );

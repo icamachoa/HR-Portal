@@ -166,8 +166,35 @@ export const addCompany = async (companyData: { name: string }): Promise<Company
 export const updateCompany = async (id: string, updates: Partial<Omit<Company, 'id'>>): Promise<Company | null> => {
     const index = companies.findIndex(c => c.id === id);
     if (index === -1) return simulateDelay(null);
+    
+    const originalStatus = companies[index].status;
     companies[index] = { ...companies[index], ...updates };
+
+    if (updates.status === 'Bloqueado' && originalStatus !== 'Bloqueado') {
+        admins = admins.map(admin => 
+            admin.companyId === id ? { ...admin, status: 'Bloqueado' as UserStatus } : admin
+        );
+        vacancies = vacancies.map(vacancy => 
+            vacancy.companyId === id ? { ...vacancy, status: JobStatus.Inactive } : vacancy
+        );
+    }
+    
     return simulateDelay(companies[index]);
+};
+
+export const deleteCompany = async (id: string): Promise<{ success: boolean; message?: string }> => {
+    const hasAdmins = admins.some(a => a.companyId === id);
+    if (hasAdmins) {
+        return simulateDelay({ success: false, message: 'No se puede eliminar la compañía porque tiene administradores asociados.' });
+    }
+    const hasVacancies = vacancies.some(v => v.companyId === id);
+    if (hasVacancies) {
+        return simulateDelay({ success: false, message: 'No se puede eliminar la compañía porque tiene vacantes asociadas.' });
+    }
+
+    const initialLength = companies.length;
+    companies = companies.filter(c => c.id !== id);
+    return simulateDelay({ success: companies.length < initialLength });
 };
 
 // --- Vacancy API ---
@@ -196,6 +223,14 @@ export const updateVacancy = async (id: string, updates: Partial<JobVacancy>): P
     if (index === -1) return simulateDelay(null);
     vacancies[index] = { ...vacancies[index], ...updates };
     return simulateDelay(vacancies[index]);
+};
+
+export const deleteVacancy = async (id: string): Promise<boolean> => {
+    const initialLength = vacancies.length;
+    vacancies = vacancies.filter(v => v.id !== id);
+    // Also delete associated candidates
+    candidates = candidates.filter(c => c.jobId !== id);
+    return simulateDelay(vacancies.length < initialLength);
 };
 
 // --- Candidate API ---

@@ -5,6 +5,7 @@ import { JobCard } from './JobCard';
 import { Modal } from './Modal';
 import { ApplicationForm } from './ApplicationForm';
 import { FilterIcon } from './icons/FilterIcon';
+import { LocationIcon } from './icons/LocationIcon';
 
 const PublicJobsView: React.FC = () => {
   const [vacancies, setVacancies] = useState<JobVacancy[]>([]);
@@ -12,6 +13,7 @@ const PublicJobsView: React.FC = () => {
   const [selectedVacancy, setSelectedVacancy] = useState<JobVacancy | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
+  const [locationFilter, setLocationFilter] = useState('All');
   
   useEffect(() => {
     const fetchVacancies = async () => {
@@ -28,13 +30,19 @@ const PublicJobsView: React.FC = () => {
     return ['All', ...Array.from(new Set(allCategories))];
   }, [vacancies]);
 
+  const locations = useMemo(() => {
+    const allLocations = vacancies.map(v => v.location);
+    return ['All', ...Array.from(new Set(allLocations))];
+  }, [vacancies]);
+
   const filteredVacancies = useMemo(() => {
     return vacancies.filter(vacancy => {
       const matchesSearch = vacancy.title.toLowerCase().includes(searchTerm.toLowerCase()) || vacancy.description.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = categoryFilter === 'All' || vacancy.category === categoryFilter;
-      return matchesSearch && matchesCategory;
+      const matchesLocation = locationFilter === 'All' || vacancy.location === locationFilter;
+      return matchesSearch && matchesCategory && matchesLocation;
     });
-  }, [vacancies, searchTerm, categoryFilter]);
+  }, [vacancies, searchTerm, categoryFilter, locationFilter]);
 
   const handleApplyClick = (vacancy: JobVacancy) => {
     setSelectedVacancy(vacancy);
@@ -58,7 +66,7 @@ const PublicJobsView: React.FC = () => {
             placeholder="Buscar por título o palabra clave..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="col-span-1 md:col-span-2 p-3 bg-gray-50 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+            className="p-3 bg-gray-50 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
           />
           <div className="relative">
             <FilterIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -68,6 +76,16 @@ const PublicJobsView: React.FC = () => {
               className="w-full p-3 pl-10 bg-gray-50 border border-gray-300 rounded-md appearance-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
             >
               {categories.map(cat => <option key={cat} value={cat}>{cat === 'All' ? 'Todas las categorías' : cat}</option>)}
+            </select>
+          </div>
+          <div className="relative">
+            <LocationIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <select
+              value={locationFilter}
+              onChange={(e) => setLocationFilter(e.target.value)}
+              className="w-full p-3 pl-10 bg-gray-50 border border-gray-300 rounded-md appearance-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+            >
+              {locations.map(loc => <option key={loc} value={loc}>{loc === 'All' ? 'Todas las ubicaciones' : loc}</option>)}
             </select>
           </div>
         </div>

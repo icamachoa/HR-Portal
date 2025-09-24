@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getCompanies, updateCompany, addCompany } from '../services/mockApi';
+import { getCompanies, updateCompany, addCompany, deleteCompany } from '../services/mockApi';
 import { Company, UserStatus } from '../types';
 import { Modal } from './Modal';
 import { PlusIcon } from './icons/PlusIcon';
 import { PencilIcon } from './icons/PencilIcon';
+import { TrashIcon } from './icons/TrashIcon';
 
 const CompanyForm: React.FC<{
     initialData: Company | null;
@@ -36,6 +37,8 @@ const CompanyManagement: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+    const [companyToDelete, setCompanyToDelete] = useState<Company | null>(null);
+    const [companyToToggleStatus, setCompanyToToggleStatus] = useState<Company | null>(null);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -64,14 +67,26 @@ const CompanyManagement: React.FC = () => {
         setEditingCompany(null);
     }
 
-    const handleToggleStatus = async (company: Company) => {
-        const newStatus: UserStatus = company.status === 'Activo' ? 'Bloqueado' : 'Activo';
-        if (window.confirm(`¿Está seguro que desea ${newStatus === 'Activo' ? 'desbloquear' : 'bloquear'} la compañía ${company.name}?`)) {
-            await updateCompany(company.id, { status: newStatus });
-            fetchData();
-        }
+    const handleToggleStatus = async () => {
+        if (!companyToToggleStatus) return;
+        const newStatus: UserStatus = companyToToggleStatus.status === 'Activo' ? 'Bloqueado' : 'Activo';
+        await updateCompany(companyToToggleStatus.id, { status: newStatus });
+        fetchData();
+        setCompanyToToggleStatus(null);
     };
     
+    const handleDelete = async () => {
+        if (!companyToDelete) return;
+
+        const result = await deleteCompany(companyToDelete.id);
+        if (result.success) {
+            fetchData();
+        } else {
+            alert(result.message || 'No se pudo eliminar la compañía. Verifique que no tenga administradores o vacantes asociadas.');
+        }
+        setCompanyToDelete(null);
+    };
+
     if (loading) return <p>Cargando compañías...</p>;
 
     return (
@@ -97,18 +112,21 @@ const CompanyManagement: React.FC = () => {
                             <tr key={company.id} className="border-b hover:bg-gray-50">
                                 <td className="p-3 text-black font-medium">{company.name}</td>
                                 <td className="p-3">
-                                    <span className={`cursor-pointer px-3 py-1 text-sm rounded-full ${company.status === 'Activo' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`} onClick={() => handleToggleStatus(company)}>
+                                    <span className={`cursor-pointer px-3 py-1 text-sm rounded-full ${company.status === 'Activo' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`} onClick={() => setCompanyToToggleStatus(company)}>
                                         {company.status}
                                     </span>
                                 </td>
                                 <td className="p-3 flex items-center space-x-2">
                                      <button 
-                                        onClick={() => handleToggleStatus(company)} 
+                                        onClick={() => setCompanyToToggleStatus(company)} 
                                         className={`px-3 py-1.5 text-xs font-semibold rounded-md text-white ${company.status === 'Activo' ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'}`}>
                                         {company.status === 'Activo' ? 'Bloquear' : 'Desbloquear'}
                                     </button>
                                     <button onClick={() => handleOpenModal(company)} title="Editar Nombre" className="p-2 text-gray-500 hover:text-green-600">
                                         <PencilIcon className="w-5 h-5" />
+                                    </button>
+                                    <button onClick={() => setCompanyToDelete(company)} title="Eliminar Compañía" className="p-2 text-gray-500 hover:text-red-600">
+                                        <TrashIcon className="w-5 h-5" />
                                     </button>
                                 </td>
                             </tr>
@@ -123,6 +141,33 @@ const CompanyManagement: React.FC = () => {
                         onSubmit={handleFormSubmit}
                         onCancel={() => setIsModalOpen(false)}
                     />
+                </Modal>
+            )}
+            {companyToDelete && (
+                <Modal title="Confirmar Eliminación" onClose={() => setCompanyToDelete(null)}>
+                    <div>
+                        <p className="text-gray-600 mb-6">
+                            ¿Está seguro que desea eliminar la compañía "{companyToDelete.name}"? Esta acción no se puede deshacer. Solo se pueden eliminar compañías sin vacantes o administradores asociados.
+                        </p>
+                        <div className="flex justify-end space-x-3">
+                            <button onClick={() => setCompanyToDelete(null)} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
+                            <button onClick={handleDelete} className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700">Eliminar</button>
+                        </div>
+                    </div>
+                </Modal>
+            )}
+            {companyToToggleStatus && (
+                <Modal title="Confirmar Cambio de Estado" onClose={() => setCompanyToToggleStatus(null)}>
+                    <div>
+                        <p className="text-gray-600 mb-6">
+                            ¿Está seguro que desea {companyToToggleStatus.status === 'Activo' ? 'bloquear' : 'desbloquear'} la compañía "{companyToToggleStatus.name}"?
+                            {companyToToggleStatus.status === 'Activo' && ' Esto bloqueará a sus administradores y pondrá sus vacantes en estado inactivo.'}
+                        </p>
+                        <div className="flex justify-end space-x-3">
+                            <button onClick={() => setCompanyToToggleStatus(null)} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
+                            <button onClick={handleToggleStatus} className="bg-orange-500 text-white px-4 py-2 rounded-md hover:bg-orange-600">Confirmar</button>
+                        </div>
+                    </div>
                 </Modal>
             )}
         </div>
